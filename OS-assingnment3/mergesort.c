@@ -132,7 +132,7 @@ void *parallel_mergesort(void *arg) {
     merge(left, mid, mid + 1, right);
 
     // Free argument structure before returning
-    free(a);
+    if(level>0) free(a);
     return NULL;
 }
 
