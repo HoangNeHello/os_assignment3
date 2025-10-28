@@ -98,14 +98,16 @@ void *parallel_mergesort(void *arg) {
 
     // Base case: single element
     if (left >= right) {
-        free(a);
+        // Only free if this is a child thread (level > 0)
+        // The root thread's arg (level 0) is freed by test-mergesort.c
+        if (level > 0) free(a);
         return NULL;
     }
 
     // Stop spawning new threads once cutoff depth is reached
     if (level >= cutoff) {
         my_mergesort(left, right);
-        free(a);
+        if (level > 0) free(a);
         return NULL;
     }
 
@@ -130,7 +132,7 @@ void *parallel_mergesort(void *arg) {
     merge(left, mid, mid + 1, right);
 
     // Free argument structure before returning
-    free(a);
+    if(level>0) free(a);
     return NULL;
 }
 
