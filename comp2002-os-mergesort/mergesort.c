@@ -24,7 +24,9 @@
  *   - Finally, copy merged block from B back into A.
  */
 void merge(int leftstart, int leftend, int rightstart, int rightend) {
-    int i = leftstart, j = rightstart, k = leftstart; // starting indices
+    int i = leftstart,  // A's index left-half
+        j = rightstart, // A's index right-half
+        k = leftstart;  // B's index (for temp buffer)
 
     // Merge while both halves have elements remaining
     while (i <= leftend && j <= rightend) {
@@ -40,7 +42,10 @@ void merge(int leftstart, int leftend, int rightstart, int rightend) {
         B[k++] = A[j++];
 
     // Copy merged results back into A
-    memcpy(&A[leftstart], &B[leftstart], (rightend - leftstart + 1) * sizeof(int));
+    memcpy(&A[leftstart],            // destination start in A
+       &B[leftstart],            // source start in B (already merged)
+       (rightend-leftstart+1)    // number of ints
+       * sizeof(int));           // …converted to bytes
 }
 
 /* --------------------------------------------------------------------
@@ -55,15 +60,16 @@ void merge(int leftstart, int leftend, int rightstart, int rightend) {
  *   - Recursive case: divide into two halves, sort each, then merge.
  */
 void my_mergesort(int left, int right) {
+    // Base case
     if (left >= right)
         return;
 
+    // Recursive case
     int mid = left + (right - left) / 2;
-
     // Sort left and right halves recursively
     my_mergesort(left, mid);
     my_mergesort(mid + 1, right);
-
+    
     // Merge sorted halves
     merge(left, mid, mid + 1, right);
 }
@@ -91,6 +97,8 @@ void my_mergesort(int left, int right) {
  *   - Free dynamically allocated argument before returning.
  */
 void *parallel_mergesort(void *arg) {
+
+    // Cast and unpack argument struct:
     struct argument *a = (struct argument *)arg;
     int left = a->left;
     int right = a->right;
@@ -103,7 +111,6 @@ void *parallel_mergesort(void *arg) {
         if (level > 0) free(a);
         return NULL;
     }
-
     // Stop spawning new threads once cutoff depth is reached
     if (level >= cutoff) {
         my_mergesort(left, right);
@@ -111,23 +118,28 @@ void *parallel_mergesort(void *arg) {
         return NULL;
     }
 
+    // ----------------------split the problem-----------------------------
     // Correct midpoint calculation (ensure proper split)
+    //     Avoid
+    // int mid = left + right / 2;       // WRONG due to operator precedence
+    // int mid = (left + right) / 2;     // OK but can overflow on large indices
     int mid = left + (right - left) / 2;
 
     // Prepare arguments for left and right halves
     struct argument *leftArg = buildArgs(left, mid, level + 1);
     struct argument *rightArg = buildArgs(mid + 1, right, level + 1);
 
+    // ----------------------create threads-----------------------------
     pthread_t t1, t2;
-
     // Create threads for left and right halves
     pthread_create(&t1, NULL, parallel_mergesort, leftArg);
     pthread_create(&t2, NULL, parallel_mergesort, rightArg);
 
+
+    // ----------------------wait and merge-----------------------------
     // Wait for both threads to finish
     pthread_join(t1, NULL);
     pthread_join(t2, NULL);
-
     // Merge the two sorted halves
     merge(left, mid, mid + 1, right);
 
